@@ -1,6 +1,7 @@
 package com.vllm.gateway.controller;
 
 import com.vllm.gateway.service.AdminService;
+import com.vllm.gateway.service.CaptchaService;
 import com.vllm.gateway.util.JwtUtil;
 import com.vllm.gateway.util.R;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,10 +22,17 @@ public class AdminController {
     private AdminService adminService;
 
     @Autowired
+    private CaptchaService captchaService;
+
+    @Autowired
     private JwtUtil jwtUtil;
 
     @PostMapping("/login")
     public R<Map<String, Object>> login(@RequestBody LoginRequest request) {
+        // 校验图片验证码
+        if (request == null || !captchaService.verify(request.captchaId, request.captchaCode)) {
+            return R.error(401, "验证码错误或已过期，请重新输入");
+        }
         if (request == null || !adminService.verify(request.username, request.password)) {
             return R.error(401, "用户名或密码错误");
         }
@@ -37,6 +45,8 @@ public class AdminController {
     public static class LoginRequest {
         public String username;
         public String password;
+        public String captchaId;
+        public String captchaCode;
     }
 
     /**
