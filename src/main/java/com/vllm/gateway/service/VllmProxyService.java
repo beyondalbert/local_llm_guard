@@ -101,6 +101,7 @@ public class VllmProxyService {
 
     private void doStream(SseEmitter emitter, JsonNode body, HttpServletRequest servletRequest) {
         long start = System.currentTimeMillis();
+        java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean(false);
         ApiKey apiKey = (ApiKey) servletRequest.getAttribute("apiKey");
         String ip = clientIp(servletRequest);
         String model = body.path("model").asText(null);
@@ -116,8 +117,8 @@ public class VllmProxyService {
                 String errorBody = readAll(response.body());
                 long cost = System.currentTimeMillis() - start;
                 saveLog(apiKey, model, promptTokens, 0, ip, cost, 0, errorBody);
-                emitter.send(SseEmitter.event().data(errorBody));
-                emitter.complete();
+                safeSend(emitter, SseEmitter.event().data(errorBody), done);
+                safeComplete(emitter, done);
                 return;
             }
 
@@ -134,23 +135,25 @@ public class VllmProxyService {
                     if ("[DONE]".equals(data)) {
                         break;
                     }
-                    emitter.send(SseEmitter.event().data(data));
+                    if (!safeSend(emitter, SseEmitter.event().data(data), done)) {
+                        break;
+                    }
                     appendDelta(data, assistant);
                 }
             }
 
             long cost = System.currentTimeMillis() - start;
             saveLog(apiKey, model, promptTokens, tokenCountUtil.count(assistant.toString()), ip, cost, 1, null);
-            emitter.send(SseEmitter.event().data("[DONE]"));
-            emitter.complete();
+            safeSend(emitter, SseEmitter.event().data("[DONE]"), done);
+            safeComplete(emitter, done);
         } catch (GatewayException e) {
             long cost = System.currentTimeMillis() - start;
             saveLog(apiKey, model, promptTokens, 0, ip, cost, 0, e.getMessage());
-            sendErrorAndComplete(emitter, openAiError(e.code, e.getMessage()));
+            sendErrorAndComplete(emitter, openAiError(e.code, e.getMessage()), done);
         } catch (Exception e) {
             long cost = System.currentTimeMillis() - start;
             saveLog(apiKey, model, promptTokens, 0, ip, cost, 0, e.getMessage());
-            sendErrorAndComplete(emitter, openAiError("upstream_error", "Failed to reach vLLM upstream: " + e.getMessage()));
+            sendErrorAndComplete(emitter, openAiError("upstream_error", "Failed to reach vLLM upstream: " + e.getMessage()), done);
         }
     }
 
@@ -311,12 +314,44 @@ public class VllmProxyService {
         }
     }
 
-    private void sendErrorAndComplete(SseEmitter emitter, String data) {
+    private void sendErrorAndComplete(SseEmitter emitter, String data,
+                                      java.util.concurrent.atomic.AtomicBoolean done) {
+        if (done.get()) {
+            return;
+        }
         try {
             emitter.send(SseEmitter.event().data(data));
             emitter.complete();
+            done.set(true);
         } catch (Exception e) {
-            emitter.completeWithError(e);
+            done.set(true);
+            // 已终结，不再做任何操作
+        }
+    }
+
+    private boolean safeSend(SseEmitter emitter, SseEmitter.SseEventBuilder builder,
+                             java.util.concurrent.atomic.AtomicBoolean done) {
+        if (done.get()) {
+            return false;
+        }
+        try {
+            emitter.send(builder);
+            return true;
+        } catch (Exception ignored) {
+            done.set(true);
+            return false;
+        }
+    }
+
+    private void safeComplete(SseEmitter emitter, java.util.concurrent.atomic.AtomicBoolean done) {
+        if (done.get()) {
+            return;
+        }
+        try {
+            emitter.complete();
+            done.set(true);
+        } catch (Exception ignored) {
+            done.set(true);
         }
     }
 

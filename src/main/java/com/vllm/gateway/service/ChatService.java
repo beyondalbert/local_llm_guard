@@ -208,6 +208,10 @@ public class ChatService {
 
         List<ChatMessage> history = messages(sessionId);
         SseEmitter emitter = new SseEmitter(600000L);
+        // 提前登记超时/出错/完成回调，确保对已终结的 emitter 不再 send/complete
+        emitter.onTimeout(() -> { });
+        emitter.onError(e -> { });
+        emitter.onCompletion(() -> { });
         executor.execute(() -> doSend(emitter, session, history, finalModel, finalTemp, finalMaxTokens, finalApiKeyId));
         return emitter;
     }
@@ -215,6 +219,7 @@ public class ChatService {
     private void doSend(SseEmitter emitter, ChatSession session, List<ChatMessage> history,
                         String model, Double temperature, Integer maxTokens, Long apiKeyId) {
         long start = System.currentTimeMillis();
+        java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean(false);
         try {
             ObjectNode body = objectMapper.createObjectNode();
             body.put("model", model);
@@ -247,14 +252,13 @@ public class ChatService {
             if (response.statusCode() != 200) {
                 String errorBody = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
                 saveLog(session, apiKeyId, model, history, 0, 0, start, 0, errorBody);
-                emitter.send(SseEmitter.event().data(sseError(errorBody)));
-                emitter.complete();
+                safeSend(emitter, SseEmitter.event().data(sseError(errorBody)), done);
+                safeComplete(emitter, done);
                 return;
             }
 
             StringBuilder assistant = new StringBuilder();
             int completionTokens = 0;
-            long firstTokenTime = 0L;
             long lastMetaTime = 0L;
             BufferedReader reader = new BufferedReader(
                     new InputStreamReader(response.body(), StandardCharsets.UTF_8));
@@ -268,53 +272,86 @@ public class ChatService {
                     if ("[DONE]".equals(data)) {
                         break;
                     }
-                    emitter.send(SseEmitter.event().data(data));
+                    if (!safeSend(emitter, SseEmitter.event().data(data), done)) {
+                        // 客户端已断开或超时，停止继续读取上游流
+                        break;
+                    }
                     String delta = appendDelta(data, assistant);
                     if (delta != null && !delta.isEmpty()) {
                         long now = System.currentTimeMillis();
-                        if (firstTokenTime == 0L) {
-                            firstTokenTime = now;
+                        if (lastMetaTime == 0L) {
                             lastMetaTime = now;
                         }
                         completionTokens += tokenCountUtil.count(delta);
                         if (now - lastMetaTime >= 500) {
-                            emitter.send(SseEmitter.event().data(metaJson(completionTokens)));
+                            safeSend(emitter, SseEmitter.event().data(metaJson(completionTokens)), done);
                             lastMetaTime = now;
                         }
                     }
                 }
             }
             // 发送最终 token 统计，便于前端显示生成速度
-            emitter.send(SseEmitter.event().data(metaJson(completionTokens)));
+            safeSend(emitter, SseEmitter.event().data(metaJson(completionTokens)), done);
 
-            // persist assistant message only after a complete response
-            ChatMessage assistantMessage = new ChatMessage();
-            assistantMessage.setSessionId(session.getId());
-            assistantMessage.setRole("assistant");
-            assistantMessage.setContent(assistant.toString());
-            assistantMessage.setPromptTokens(0);
-            assistantMessage.setCompletionTokens(tokenCountUtil.count(assistant.toString()));
-            assistantMessage.setCreateTime(TimeUtil.now());
-            chatMessageMapper.insert(assistantMessage);
+            // 仅在客户端仍在线时才持久化本轮助手消息（避免对已断开的连接做无谓写库）
+            if (!done.get()) {
+                ChatMessage assistantMessage = new ChatMessage();
+                assistantMessage.setSessionId(session.getId());
+                assistantMessage.setRole("assistant");
+                assistantMessage.setContent(assistant.toString());
+                assistantMessage.setPromptTokens(0);
+                assistantMessage.setCompletionTokens(tokenCountUtil.count(assistant.toString()));
+                assistantMessage.setCreateTime(TimeUtil.now());
+                chatMessageMapper.insert(assistantMessage);
 
-            ChatSession touch = new ChatSession();
-            touch.setId(session.getId());
-            touch.setUpdateTime(TimeUtil.now());
-            chatSessionMapper.updateById(touch);
+                ChatSession touch = new ChatSession();
+                touch.setId(session.getId());
+                touch.setUpdateTime(TimeUtil.now());
+                chatSessionMapper.updateById(touch);
 
-            saveLog(session, apiKeyId, model, history, assistantMessage.getCompletionTokens(), 0, start, 1, null);
-            emitter.send(SseEmitter.event().data("[DONE]"));
-            emitter.complete();
+                saveLog(session, apiKeyId, model, history, assistantMessage.getCompletionTokens(), 0, start, 1, null);
+            }
+            safeSend(emitter, SseEmitter.event().data("[DONE]"), done);
+            safeComplete(emitter, done);
         } catch (Exception e) {
             saveLog(session, apiKeyId, model, history, 0, 0, start, 0, e.getMessage());
-            try {
-                emitter.send(SseEmitter.event().data(sseError("vLLM 上游请求失败: " + e.getMessage())));
-                emitter.complete();
-            } catch (Exception ex) {
-                emitter.completeWithError(ex);
+            // 只在连接仍然有效时才推送错误并结束，否则直接忽略
+            boolean sent = safeSend(emitter, SseEmitter.event().data(sseError("vLLM 上游请求失败: " + e.getMessage())), done);
+            if (sent) {
+                safeComplete(emitter, done);
             }
         }
     }
+
+    /**
+     * 安全发送：emitter 已终结（客户端断开/超时/已 completed）时静默忽略并标记 done，返回 false。
+     */
+    private boolean safeSend(SseEmitter emitter, SseEmitter.SseEventBuilder builder,
+                             java.util.concurrent.atomic.AtomicBoolean done) {
+        if (done.get()) {
+            return false;
+        }
+        try {
+            emitter.send(builder);
+            return true;
+        } catch (Exception ignored) {
+            done.set(true);
+            return false;
+        }
+    }
+
+    private void safeComplete(SseEmitter emitter, java.util.concurrent.atomic.AtomicBoolean done) {
+        if (done.get()) {
+            return;
+        }
+        try {
+            emitter.complete();
+            done.set(true);
+        } catch (Exception ignored) {
+            done.set(true);
+        }
+    }
+
 
     private void saveLog(ChatSession session, Long apiKeyId, String model, List<ChatMessage> history,
                          int completionTokens, int unused, long start, int status, String errorMsg) {
