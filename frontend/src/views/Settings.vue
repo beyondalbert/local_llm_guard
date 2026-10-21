@@ -70,6 +70,23 @@
           <el-input-number v-model="form.frequencyPenalty" :min="-2" :max="2" :step="0.1" />
         </el-form-item>
 
+        <el-divider content-position="left">费用计价（元 / 百万 Token）</el-divider>
+        <div class="tip price-tip">在下方设置后，数据看板会按各 Key 的输入/输出 Token 量实时估算费用。</div>
+        <el-row :gutter="24">
+          <el-col :span="12">
+            <el-form-item label="输入单价">
+              <el-input-number v-model="form.inputPricePerM" :min="0" :precision="4" :step="0.1" />
+              <span class="hint">元 / 百万 tokens</span>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="输出单价">
+              <el-input-number v-model="form.outputPricePerM" :min="0" :precision="4" :step="0.1" />
+              <span class="hint">元 / 百万 tokens</span>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
         <el-form-item>
           <el-button type="primary" :loading="saving" @click="save">保存配置</el-button>
           <el-button @click="loadConfig">重置</el-button>
@@ -97,7 +114,9 @@ const form = reactive({
   maxTokens: 2048,
   topP: 1.0,
   presencePenalty: 0,
-  frequencyPenalty: 0
+  frequencyPenalty: 0,
+  inputPricePerM: 0,
+  outputPricePerM: 0
 })
 
 async function loadConfig() {
@@ -172,5 +191,14 @@ onMounted(loadConfig)
 .model-tag {
   margin: 2px 4px 2px 0;
   cursor: pointer;
+}
+.price-tip {
+  margin-left: 140px;
+  margin-bottom: 12px;
+}
+.hint {
+  margin-left: 8px;
+  color: #909399;
+  font-size: 12px;
 }
 </style>

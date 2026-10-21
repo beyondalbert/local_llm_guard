@@ -29,6 +29,9 @@ public class StatService {
     @Autowired
     private ChatSessionMapper chatSessionMapper;
 
+    @Autowired
+    private ConfigService configService;
+
     public Map<String, Object> dashboard() {
         Map<String, Object> map = new HashMap<>();
         long totalPrompt = nvl(requestLogMapper.sumPromptTokens());
@@ -37,12 +40,20 @@ public class StatService {
         map.put("totalPromptTokens", totalPrompt);
         map.put("totalCompletionTokens", totalCompletion);
         map.put("totalTokens", totalPrompt + totalCompletion);
+        map.put("totalCost", configService.calcCost(totalPrompt, totalCompletion));
+        map.put("inputPricePerM", configService.getInputPricePerM());
+        map.put("outputPricePerM", configService.getOutputPricePerM());
+        map.put("currency", "CNY");
         map.put("totalSessions", nvl(chatSessionMapper.countAll()));
 
         String todayStart = LocalDate.now().atStartOfDay().format(TIME_FORMAT);
         String tomorrowStart = LocalDate.now().plusDays(1).atStartOfDay().format(TIME_FORMAT);
         map.put("todayRequests", nvl(requestLogMapper.countBetween(todayStart, tomorrowStart)));
         map.put("todayTokens", nvl(requestLogMapper.sumTokensBetween(todayStart, tomorrowStart)));
+
+        long todayPrompt = nvl(requestLogMapper.sumPromptTokensBetween(todayStart, tomorrowStart));
+        long todayCompletion = nvl(requestLogMapper.sumCompletionTokensBetween(todayStart, tomorrowStart));
+        map.put("todayCost", configService.calcCost(todayPrompt, todayCompletion));
 
         String sevenDaysAgo = LocalDate.now().minusDays(6).atStartOfDay().format(TIME_FORMAT);
         List<Map<String, Object>> byDay = requestLogMapper.countByDay(sevenDaysAgo);
@@ -65,8 +76,14 @@ public class StatService {
         map.put("requestTrend", trend);
         map.put("modelDistribution", requestLogMapper.countByModel());
         map.put("statusDistribution", requestLogMapper.countByStatus());
-        map.put("keyUsage", requestLogMapper.usageByKey());
+        map.put("keyUsage", requestLogMapper.usageByKey(perToken(configService.getInputPricePerM()),
+                perToken(configService.getOutputPricePerM())));
         return map;
+    }
+
+    /** 每百万价格 -> 每个 token 价格 */
+    private double perToken(double perM) {
+        return perM / 1_000_000.0;
     }
 
     public List<Map<String, Object>> dailyStats(int days, List<Long> apiKeyIds) {
@@ -76,7 +93,9 @@ public class StatService {
         LocalDate startDate = LocalDate.now().minusDays(days - 1L);
         String start = startDate.atStartOfDay().format(TIME_FORMAT);
         List<Long> keys = (apiKeyIds == null || apiKeyIds.isEmpty()) ? null : apiKeyIds;
-        List<Map<String, Object>> rows = requestLogMapper.dailyStats(start, keys);
+        List<Map<String, Object>> rows = requestLogMapper.dailyStats(start, keys,
+                perToken(configService.getInputPricePerM()),
+                perToken(configService.getOutputPricePerM()));
 
         Map<String, Map<String, Object>> byDay = new LinkedHashMap<>();
         for (Map<String, Object> row : rows) {
@@ -90,6 +109,7 @@ public class StatService {
             item.put("promptTokens", toLong(row.get("promptTokens")));
             item.put("completionTokens", toLong(row.get("completionTokens")));
             item.put("totalTokens", toLong(row.get("totalTokens")));
+            item.put("totalCost", toDouble(row.get("totalCost")));
             byDay.put(String.valueOf(day), item);
         }
 
@@ -104,6 +124,7 @@ public class StatService {
                 item.put("promptTokens", 0L);
                 item.put("completionTokens", 0L);
                 item.put("totalTokens", 0L);
+                item.put("totalCost", 0.0);
             }
             result.add(item);
         }
@@ -164,6 +185,20 @@ public class StatService {
             wrapper.le("request_time", endTime);
         }
         return wrapper;
+    }
+
+    private double toDouble(Object value) {
+        if (value == null) {
+            return 0.0;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        try {
+            return Double.parseDouble(String.valueOf(value));
+        } catch (Exception e) {
+            return 0.0;
+        }
     }
 
     private long nvl(Long value) {

@@ -68,6 +68,9 @@
         <el-table-column prop="promptTokens" label="Prompt Tokens" width="140" align="right" />
         <el-table-column prop="completionTokens" label="Completion Tokens" width="170" align="right" />
         <el-table-column prop="totalTokens" label="总 Tokens" width="120" align="right" />
+        <el-table-column label="费用" width="120" align="right">
+          <template #default="{ row }">{{ formatMoney(row.totalCost) }}</template>
+        </el-table-column>
         <el-table-column prop="lastRequestTime" label="最近请求时间" width="180" />
       </el-table>
     </el-card>
@@ -140,7 +143,7 @@ import request from '../api'
 const cards = reactive([
   { label: '总请求数', value: 0 },
   { label: '总 Tokens', value: 0 },
-  { label: '会话总数', value: 0 },
+  { label: '总费用', value: '¥0.00' },
   { label: '今日请求', value: 0 }
 ])
 
@@ -168,9 +171,14 @@ async function loadDashboard() {
     const r = await request.get('/api/admin/stat/dashboard')
     const d = r.data || {}
     cards[0].value = d.totalRequests ?? 0
-    cards[1].value = d.totalTokens ?? 0
-    cards[2].value = d.totalSessions ?? 0
+    cards[1].value = formatTokens(d.totalTokens ?? 0)
+    cards[2].value = formatMoney(d.totalCost ?? 0)
     cards[3].value = d.todayRequests ?? 0
+    if (d.todayCost != null) {
+      todayCost = d.todayCost
+    }
+    inputPrice = d.inputPricePerM ?? 0
+    outputPrice = d.outputPricePerM ?? 0
     keyUsage.value = d.keyUsage || []
     renderModel(d.modelDistribution || [])
     renderKey(keyUsage.value)
@@ -196,7 +204,13 @@ async function loadDaily() {
 function renderDaily(rows) {
   if (!dailyChart) return
   dailyChart.setOption({
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      valueFormatter: (v, dataIndex) => {
+        const row = rows[dataIndex]
+        return row ? `${fmtNum(v)}<br/>费用：${formatMoney(row.totalCost)}` : v
+      }
+    },
     legend: { bottom: 0 },
     grid: { left: 20, right: 20, top: 50, bottom: 60, containLabel: true },
     xAxis: { type: 'category', data: rows.map((i) => (i.date || '').slice(5)) },
@@ -234,7 +248,17 @@ function renderKey(usage) {
   if (!keyChart) return
   const rows = usage || []
   keyChart.setOption({
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params) => {
+        const i = params[0] ? params[0].dataIndex : 0
+        const row = rows[i] || {}
+        let s = (row.apiKeyId == null ? '未关联 Key' : keyLabel(row)) + '<br/>'
+        params.forEach((p) => { s += `${p.marker}${p.seriesName}：${fmtNum(p.value)}<br/>` })
+        s += `费用：${formatMoney(row.totalCost)}`
+        return s
+      }
+    },
     legend: { bottom: 0 },
     grid: { left: 20, right: 20, top: 50, bottom: 60, containLabel: true },
     xAxis: { type: 'category', data: rows.map((i) => (i.apiKeyId == null ? '未关联 Key' : keyLabel(i))), axisLabel: { interval: 0 } },
@@ -249,6 +273,25 @@ function renderKey(usage) {
     ]
   })
 }
+
+function formatTokens(n) {
+  return fmtNum(n)
+}
+
+function fmtNum(n) {
+  const num = Number(n) || 0
+  if (num >= 1e8) return (num / 1e8).toFixed(2) + '亿'
+  if (num >= 1e4) return (num / 1e4).toFixed(2) + '万'
+  return String(num)
+}
+
+function formatMoney(n) {
+  return '¥' + (Number(n) || 0).toFixed(inputPrice > 0 || outputPrice > 0 ? 4 : 2)
+}
+
+let todayCost = 0
+let inputPrice = 0
+let outputPrice = 0
 
 async function loadKeys() {
   const r = await request.get('/api/admin/apikey/list')

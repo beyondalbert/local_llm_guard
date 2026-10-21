@@ -21,6 +21,8 @@ public class ConfigService {
     public static final String K_TOP_P = "model.top_p";
     public static final String K_PRESENCE_PENALTY = "model.presence_penalty";
     public static final String K_FREQUENCY_PENALTY = "model.frequency_penalty";
+    public static final String K_PRICE_INPUT = "price.input-per-m";
+    public static final String K_PRICE_OUTPUT = "price.output-per-m";
 
     @Value("${vllm.upstream-url}")
     private String defaultUpstreamUrl;
@@ -38,6 +40,8 @@ public class ConfigService {
         putIfAbsent(K_TOP_P, "1.0");
         putIfAbsent(K_PRESENCE_PENALTY, "0.0");
         putIfAbsent(K_FREQUENCY_PENALTY, "0.0");
+        putIfAbsent(K_PRICE_INPUT, "0.0");
+        putIfAbsent(K_PRICE_OUTPUT, "0.0");
     }
 
     public String getUpstreamUrl() {
@@ -76,6 +80,28 @@ public class ConfigService {
         return parseDouble(get(K_FREQUENCY_PENALTY, "0.0"), 0.0);
     }
 
+    /**
+     * 输入每百万 Token 的价格（元）。
+     */
+    public double getInputPricePerM() {
+        return parseDouble(get(K_PRICE_INPUT, "0.0"), 0.0);
+    }
+
+    /**
+     * 输出每百万 Token 的价格（元）。
+     */
+    public double getOutputPricePerM() {
+        return parseDouble(get(K_PRICE_OUTPUT, "0.0"), 0.0);
+    }
+
+    /**
+     * 由 token 数量计算费用（元）。
+     */
+    public double calcCost(long promptTokens, long completionTokens) {
+        return promptTokens / 1_000_000.0 * getInputPricePerM()
+                + completionTokens / 1_000_000.0 * getOutputPricePerM();
+    }
+
     public Map<String, Object> getAll() {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("upstreamUrl", getUpstreamUrl());
@@ -86,6 +112,9 @@ public class ConfigService {
         map.put("topP", getTopP());
         map.put("presencePenalty", getPresencePenalty());
         map.put("frequencyPenalty", getFrequencyPenalty());
+        map.put("inputPricePerM", getInputPricePerM());
+        map.put("outputPricePerM", getOutputPricePerM());
+        map.put("currency", "CNY");
         return map;
     }
 
@@ -101,6 +130,8 @@ public class ConfigService {
         saveValue(values, "topP", K_TOP_P);
         saveValue(values, "presencePenalty", K_PRESENCE_PENALTY);
         saveValue(values, "frequencyPenalty", K_FREQUENCY_PENALTY);
+        saveValue(values, "inputPricePerM", K_PRICE_INPUT);
+        saveValue(values, "outputPricePerM", K_PRICE_OUTPUT);
     }
 
     private void saveValue(Map<String, Object> values, String key, String dbKey) {
