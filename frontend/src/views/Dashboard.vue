@@ -206,9 +206,17 @@ function renderDaily(rows) {
   dailyChart.setOption({
     tooltip: {
       trigger: 'axis',
-      valueFormatter: (v, dataIndex) => {
-        const row = rows[dataIndex]
-        return row ? `${fmtNum(v)}<br/>费用：${formatMoney(row.totalCost)}` : v
+      formatter: (params) => {
+        if (!params || !params.length) return ''
+        const i = params[0].dataIndex
+        const row = rows[i] || {}
+        const lines = []
+        if (row.date) lines.push(row.date)
+        params.forEach((p) => {
+          lines.push(`${p.marker}${p.seriesName}：${fmtNum(p.value)}`)
+        })
+        lines.push(`费用：${formatMoney(row.totalCost)}`)
+        return lines.join('<br/>')
       }
     },
     legend: { bottom: 0 },
