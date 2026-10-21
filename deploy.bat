@@ -113,6 +113,8 @@ echo [部署] 准备部署文件...
 copy /Y "%ROOT%target\vllm-gateway.jar" "%STAGE%\vllm-gateway.jar" >nul || goto :fail
 copy /Y "%ROOT%start.bat" "%STAGE%\start.bat" >nul || goto :fail
 copy /Y "%ROOT%start.sh" "%STAGE%\start.sh" >nul || goto :fail
+rem 部署包一并带上完整版系统说明
+if exist "%ROOT%README.md" copy /Y "%ROOT%README.md" "%STAGE%\README.md" >nul
 if exist "%ROOT%deploy.conf.example" copy /Y "%ROOT%deploy.conf.example" "%STAGE%\deploy.conf.example" >nul
 
 rem 保证 Linux 脚本为 LF 行尾（避免 bash\r 报错）
@@ -126,29 +128,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "$p='%STAGE%\start.sh'; $
     echo   vllm-gateway.jar  可执行 JAR
     echo   start.bat         Windows 启动脚本
     echo   start.sh          Linux 启动脚本
+    echo   README.md         完整功能与使用说明
     echo   data\             SQLite 数据库目录（首次运行自动生成 vllm_gateway.db）
     echo.
-    echo Windows 启动:
-    echo   start.bat
-    echo   或 start.bat http://你的vLLM地址:8000/v1
-    echo   停止: start.bat stop
-    echo   状态: start.bat status
+    echo 快速启动（详见 README.md）:
+    echo   Windows: start.bat    （停止 start.bat stop，状态 start.bat status）
+    echo   Linux:    ./start.sh  参数为 start / restart / stop / status
     echo.
-    echo Linux 启动:
-    echo   ./start.sh start
-    echo   ./start.sh restart
-    echo   ./start.sh stop
-    echo   ./start.sh status
-    echo.
-    echo 可选环境变量:
-    echo   SERVER_PORT        管理端口，默认 8080
-    echo   VLLM_UPSTREAM_URL  vLLM 上游地址，默认 http://127.0.0.1:8000/v1
-    echo.
-    echo 默认管理员:
-    echo   账号 admin
-    echo   密码 Admin@123456
-    echo.
-    echo 管理台: http://127.0.0.1:8080
+    echo 默认管理员: admin / Admin@123456
+    echo 管理台:    http://127.0.0.1:8080
 ) > "%STAGE%\README.txt"
 
 if "!IS_REMOTE!"=="1" goto :remote_deploy
