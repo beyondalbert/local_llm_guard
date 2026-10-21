@@ -1,17 +1,17 @@
 <template>
   <div>
     <el-row :gutter="16">
-      <el-col :span="6" v-for="card in cards" :key="card.label">
-        <el-card class="stat-card">
+      <el-col :xs="12" :sm="12" :md="6" v-for="card in cards" :key="card.label">
+        <el-card class="stat-card" shadow="never">
           <div class="stat-label">{{ card.label }}</div>
-          <div class="stat-value">{{ card.value }}</div>
+          <div class="stat-value" :class="{ 'money': card.label.includes('费用') }">{{ card.value }}</div>
         </el-card>
       </el-col>
     </el-row>
 
     <el-row :gutter="16" class="charts">
-      <el-col :span="16">
-        <el-card v-loading="dailyLoading">
+      <el-col :xs="24" :sm="16">
+        <el-card v-loading="dailyLoading" shadow="never">
           <div class="chart-header">
             <div class="chart-title">每日统计</div>
             <div class="chart-controls">
@@ -36,8 +36,8 @@
           <div ref="dailyRef" class="chart"></div>
         </el-card>
       </el-col>
-      <el-col :span="8">
-        <el-card>
+      <el-col :xs="24" :sm="8">
+        <el-card shadow="never">
           <div class="chart-title">模型分布</div>
           <div ref="modelRef" class="chart"></div>
         </el-card>
@@ -46,7 +46,7 @@
 
     <el-row :gutter="16" class="charts">
       <el-col :span="24">
-        <el-card>
+        <el-card shadow="never">
           <div class="chart-title">各 API Key 请求与 Token 统计</div>
           <div ref="keyRef" class="chart"></div>
         </el-card>
@@ -379,6 +379,17 @@ onBeforeUnmount(() => {
   font-weight: 600;
   margin-top: 8px;
 }
+.stat-value.money {
+  color: #e67e22;
+}
+@media (max-width: 768px) {
+  .stat-value {
+    font-size: 20px;
+  }
+  .stat-card :deep(.el-card__body) {
+    padding: 12px 8px;
+  }
+}
 .charts {
   margin-top: 16px;
 }
@@ -428,5 +439,38 @@ onBeforeUnmount(() => {
 .pagination {
   margin-top: 12px;
   justify-content: flex-end;
+  flex-wrap: wrap;
+}
+@media (max-width: 768px) {
+  .charts {
+    margin-top: 12px;
+  }
+  .chart {
+    height: 260px;
+  }
+  .chart-controls {
+    width: 100%;
+  }
+  .chart-controls .el-select {
+    width: 100% !important;
+  }
+  .detail-card {
+    margin-top: 12px;
+  }
+  .detail-card :deep(.el-card__body) {
+    padding: 12px;
+  }
+  .filters {
+    width: 100%;
+  }
+  .filters :deep(.el-input),
+  .filters :deep(.el-select),
+  .filters :deep(.el-date-editor) {
+    width: 100% !important;
+  }
+  /* 表格在移动端变成横向滚动，触屏可滑动 */
+  .detail-card :deep(.el-table) {
+    min-width: 0;
+  }
 }
 </style>

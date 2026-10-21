@@ -1,7 +1,7 @@
 <template>
   <div class="chat-app">
-    <!-- 会话侧边栏 -->
-    <aside class="sidebar">
+    <!-- 会话侧边栏（桌面常驻 / 移动端抽屉） -->
+    <aside class="sidebar" :class="{ open: sidebarOpen }">
       <div class="brand">
         <span class="brand-mark">L</span>
         <span>Local LLM Guard</span>
@@ -35,9 +35,13 @@
       </el-scrollbar>
     </aside>
 
+    <!-- 移动端会话抽屉遮罩 -->
+    <div v-if="sidebarOpen" class="sidebar-mask" @click="sidebarOpen = false"></div>
+
     <!-- 主对话区 -->
     <main class="main">
       <header class="chat-header">
+        <button class="mobile-menu-btn" @click="sidebarOpen = true">☰</button>
         <div class="chat-title" :title="currentSession?.title">{{ currentSession?.title || '新对话' }}</div>
         <div class="header-controls">
           <el-select
@@ -140,6 +144,7 @@ const messages = ref([])
 const input = ref('')
 const streaming = ref(false)
 const scrollEl = ref(null)
+const sidebarOpen = ref(false)
 let abortController = null
 let userScrolledUp = false
 
@@ -195,6 +200,7 @@ async function selectSession(s) {
   if (s.apiKeyId != null) {
     params.apiKeyId = s.apiKeyId
   }
+  sidebarOpen.value = false
   const r = await request.get(`/api/admin/chat/session/${s.id}/messages`)
   messages.value = r.data || []
   scrollToBottom(true)
@@ -218,6 +224,7 @@ async function newSession() {
   })
   currentSession.value = { id: r.data, title: '新对话', apiKeyId: params.apiKeyId, modelName: params.modelName }
   messages.value = []
+  sidebarOpen.value = false
   await loadSessions()
 }
 
@@ -813,5 +820,76 @@ onBeforeUnmount(() => {
   text-align: center;
   font-size: 12px;
   color: #cbd5e1;
+}
+
+/* ---------- 移动端适配 ---------- */
+.mobile-menu-btn {
+  display: none;
+}
+.sidebar-mask {
+  display: none;
+}
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-mask {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    z-index: 99;
+  }
+  .mobile-menu-btn {
+    display: inline-flex;
+    border: none;
+    background: #f1f5f9;
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .chat-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #fff;
+  }
+  .header-controls .key-select,
+  .header-controls .model-select {
+    display: none;
+  }
+  .msg {
+    max-width: 100%;
+    padding: 12px 14px;
+  }
+  .avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+  }
+  .composer-wrap {
+    padding: 0 12px 10px;
+  }
+  .composer-hint {
+    display: none;
+  }
+  /* 键盘弹出时调整 */
+  .param-btn {
+    padding: 5px 8px;
+  }
 }
 </style>

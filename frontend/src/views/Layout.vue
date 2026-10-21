@@ -1,5 +1,11 @@
 <template>
   <el-container class="layout">
+    <!-- 手机端顶栏菜单按钮 -->
+    <div class="mobile-topbar">
+      <button class="burger" @click="drawer = true">☰</button>
+      <span class="mobile-title">{{ routeTitle }}</span>
+    </div>
+
     <el-aside width="210px" class="aside">
       <div class="logo">
         <span class="logo-mark">L</span>
@@ -72,6 +78,30 @@
         <el-button type="primary" :loading="pwdSaving" @click="submitPassword">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 手机端抽屉菜单 -->
+    <el-drawer v-model="drawer" direction="ltr" size="215px" :with-header="false" class="mobile-drawer">
+      <div class="drawer-menu">
+        <div class="logo">
+          <span class="logo-mark">L</span>
+          <span>Local LLM Guard</span>
+        </div>
+        <el-menu :default-active="$route.path" router background-color="#0f172a" text-color="#94a3b8" active-text-color="#ffffff" @select="drawer = false">
+          <el-menu-item index="/dashboard"><span class="menu-icon">▦</span><span>数据看板</span></el-menu-item>
+          <el-menu-item index="/keys"><span class="menu-icon">⚿</span><span>API Key 管理</span></el-menu-item>
+          <el-menu-item index="/chat"><span class="menu-icon">✉</span><span>对话测试</span></el-menu-item>
+          <el-menu-item index="/settings"><span class="menu-icon">⚙</span><span>模型配置</span></el-menu-item>
+        </el-menu>
+        <div class="drawer-foot">
+          <div class="drawer-user">
+            <span class="avatar">{{ (username || 'A')[0].toUpperCase() }}</span>
+            <span class="name" style="color:#e2e8f0">{{ username }}</span>
+          </div>
+          <el-button link style="color:#94a3b8" @click="openPwd">修改密码</el-button>
+          <el-button link style="color:#f56c6c" @click="logout">退出登录</el-button>
+        </div>
+      </div>
+    </el-drawer>
   </el-container>
 </template>
 
@@ -84,6 +114,8 @@ import request from '../api'
 const route = useRoute()
 const router = useRouter()
 const username = localStorage.getItem('admin_username') || 'admin'
+
+const drawer = ref(false)
 
 const pwdVisible = ref(false)
 const pwdSaving = ref(false)
@@ -127,15 +159,23 @@ const routeTitle = computed(() => {
 
 function onCommand(command) {
   if (command === 'logout') {
-    localStorage.removeItem('admin_token')
-    localStorage.removeItem('admin_username')
-    router.push('/login')
+    logout()
   } else if (command === 'password') {
-    pwdForm.oldPassword = ''
-    pwdForm.newPassword = ''
-    pwdForm.confirmPassword = ''
-    pwdVisible.value = true
+    openPwd()
   }
+}
+
+function logout() {
+  localStorage.removeItem('admin_token')
+  localStorage.removeItem('admin_username')
+  router.push('/login')
+}
+
+function openPwd() {
+  pwdForm.oldPassword = ''
+  pwdForm.newPassword = ''
+  pwdForm.confirmPassword = ''
+  pwdVisible.value = true
 }
 
 async function submitPassword() {
@@ -262,5 +302,90 @@ async function submitPassword() {
   overflow: auto;
   background: #f5f7fa;
   padding: 0;
+}
+
+/* ---------- 移动端适配 ---------- */
+.mobile-topbar {
+  display: none;
+}
+.drawer-menu {
+  height: 100%;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+}
+.drawer-menu .logo {
+  padding: 18px 20px;
+}
+.drawer-menu :deep(.el-menu) {
+  border-right: none;
+}
+.drawer-menu :deep(.el-menu-item) {
+  height: 48px;
+  line-height: 48px;
+}
+.drawer-foot {
+  margin-top: auto;
+  padding: 12px 16px;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.drawer-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 768px) {
+  .aside {
+    display: none !important;
+  }
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 50px;
+    padding: 0 12px;
+    background: #fff;
+    border-bottom: 1px solid #eef2f7;
+    flex-shrink: 0;
+  }
+  .burger {
+    border: none;
+    background: #f1f5f9;
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+    cursor: pointer;
+  }
+  .mobile-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
+  }
+  .layout {
+    flex-direction: column;
+  }
+  .body {
+    min-width: 0;
+  }
+  .header {
+    display: none !important;
+  }
+}
+@media (max-width: 768px) {
+  .mobile-drawer .el-drawer__body {
+    padding: 0;
+    background: #0f172a;
+  }
+  .pwd-dialog {
+    width: 92% !important;
+    max-width: 420px;
+  }
 }
 </style>

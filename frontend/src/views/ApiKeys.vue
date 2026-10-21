@@ -264,6 +264,26 @@ onMounted(load)
   font-size: 16px;
   font-weight: 600;
 }
+@media (max-width: 768px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .toolbar .el-button {
+    width: 100%;
+    margin-left: 0 !important;
+  }
+  /* 移动端卡片横向滚动 */
+  :deep(.el-card__body) {
+    overflow-x: auto;
+    padding: 12px;
+  }
+  :deep(.el-dialog) {
+    width: 92% !important;
+    max-width: 480px;
+  }
+}
 .hint {
   margin-left: 8px;
   color: #909399;

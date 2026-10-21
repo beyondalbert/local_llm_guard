@@ -73,15 +73,15 @@
         <el-divider content-position="left">费用计价（元 / 百万 Token）</el-divider>
         <div class="tip price-tip">在下方设置后，数据看板会按各 Key 的输入/输出 Token 量实时估算费用。</div>
         <el-row :gutter="24">
-          <el-col :span="12">
+          <el-col :xs="24" :span="12">
             <el-form-item label="输入单价">
-              <el-input-number v-model="form.inputPricePerM" :min="0" :precision="4" :step="0.1" />
+              <el-input-number v-model="form.inputPricePerM" :min="0" :precision="4" :step="0.1" style="width:100%" />
               <span class="hint">元 / 百万 tokens</span>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :span="12">
             <el-form-item label="输出单价">
-              <el-input-number v-model="form.outputPricePerM" :min="0" :precision="4" :step="0.1" />
+              <el-input-number v-model="form.outputPricePerM" :min="0" :precision="4" :step="0.1" style="width:100%" />
               <span class="hint">元 / 百万 tokens</span>
             </el-form-item>
           </el-col>
@@ -200,5 +200,34 @@ onMounted(loadConfig)
   margin-left: 8px;
   color: #909399;
   font-size: 12px;
+}
+@media (max-width: 768px) {
+  .settings-page {
+    padding: 12px;
+  }
+  .settings-card :deep(.el-card__body) {
+    padding: 16px 12px;
+  }
+  .settings-form :deep(.el-form-item) {
+    margin-bottom: 16px;
+  }
+  .settings-form :deep(.el-form-item__label) {
+    float: none;
+    display: block;
+    text-align: left;
+    width: auto !important;
+    padding: 0 0 4px;
+  }
+  .settings-form :deep(.el-form-item__content) {
+    margin-left: 0 !important;
+  }
+  /* 上游地址/Key 前后的 prepend/append 在小屏收缩 */
+  .settings-form :deep(.el-input-group__prepend),
+  .settings-form :deep(.el-input-group__append) {
+    padding: 0 8px;
+  }
+  .price-tip {
+    margin-left: 0;
+  }
 }
 </style>

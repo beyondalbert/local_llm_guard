@@ -60,9 +60,21 @@ async function submit() {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 20px;
 }
 .login-card {
   width: 380px;
+  max-width: 100%;
+}
+@media (max-width: 768px) {
+  .login-card {
+    width: 100%;
+  }
+}
+@media (max-width: 768px) {
+  .login-card :deep(.el-card__body) {
+    padding: 20px 16px;
+  }
 }
 .title {
   text-align: center;

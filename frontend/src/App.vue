@@ -11,4 +11,7 @@ html, body, #app {
   margin: 0;
   background: #f5f7fa;
 }
+* { box-sizing: border-box; }
+html, body { -webkit-tap-highlight-color: transparent; }
+body { overflow-x: hidden; }
 </style>
