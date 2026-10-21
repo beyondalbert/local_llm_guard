@@ -46,7 +46,8 @@ public interface RequestLogMapper extends BaseMapper<RequestLog> {
     @Select("SELECT status AS name, COUNT(*) AS value FROM request_log GROUP BY status")
     List<Map<String, Object>> countByStatus();
 
-    @Select("SELECT date(request_time) AS day, COUNT(*) AS requests, " +
+    @Select("<script>" +
+            "SELECT date(request_time) AS day, COUNT(*) AS requests, " +
             "IFNULL(SUM(prompt_tokens),0) AS promptTokens, " +
             "IFNULL(SUM(completion_tokens),0) AS completionTokens, " +
             "IFNULL(SUM(prompt_tokens + completion_tokens),0) AS totalTokens, " +
