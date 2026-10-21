@@ -1,0 +1,23 @@
+{
+  "name": "vllm-gateway-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "dompurify": "^3.4.17",
+    "echarts": "^5.5.0",
+    "element-plus": "^2.7.5",
+    "marked": "^18.1.1",
+    "vue": "^3.4.27",
+    "vue-router": "^4.3.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.11"
+  }
+}

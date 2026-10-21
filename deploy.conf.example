@@ -1,0 +1,22 @@
+# ============================================
+# Local LLM Guard 远程部署配置
+# 直接编辑本文件，然后运行 deploy.bat 即可。
+# 命令行覆盖：deploy.bat user@host:/opt/vllm-gateway
+# ============================================
+
+# 部署模式：local=本地打包到 deploy 目录；remote=读取下方远程服务器信息部署
+DEPLOY_MODE=local
+
+# ---------- 远程服务器信息（DEPLOY_MODE=remote 时生效） ----------
+DEPLOY_HOST=192.168.1.10
+DEPLOY_USER=root
+DEPLOY_PATH=/opt/vllm-gateway
+DEPLOY_SSH_PORT=22
+# Windows 下 SSH 私钥路径（可选，留空则使用系统默认密钥）
+DEPLOY_SSH_KEY=
+
+# ---------- 线上服务参数（可选，远程重启时注入环境变量） ----------
+# 管理端口，默认 8080
+DEPLOY_SERVER_PORT=8080
+# vLLM 上游地址
+DEPLOY_UPSTREAM_URL=http://127.0.0.1:8000/v1

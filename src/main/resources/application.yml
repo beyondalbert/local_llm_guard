@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: local-llm-guard
+  datasource:
+    url: jdbc:sqlite:./data/vllm_gateway.db
+    driver-class-name: org.sqlite.JDBC
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+vllm:
+  upstream-url: http://127.0.0.1:8000/v1
+
+admin:
+  username: admin
+  password: Admin@123456
+
+jwt:
+  secret: JwtSecretKey2026
+  expire: 86400000
+
+log:
+  keep-days: 90
