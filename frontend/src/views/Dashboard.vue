@@ -103,8 +103,13 @@
 
       <el-table :data="records" v-loading="detailLoading" border stripe size="small">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="apiKeyId" label="Key ID" width="80" />
         <el-table-column prop="model" label="模型" min-width="140" />
+        <el-table-column label="API Key" min-width="150">
+          <template #default="{ row }">
+            <span v-if="row.apiKeyId == null" class="no-key">未关联 Key</span>
+            <span v-else>{{ keyIdLabel(row.apiKeyId) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="promptTokens" label="Prompt Tokens" width="130" />
         <el-table-column prop="completionTokens" label="Completion Tokens" width="160" />
         <el-table-column prop="requestIp" label="IP" width="130" />
@@ -250,6 +255,15 @@ function keyLabel(row) {
   if (row.remark) return row.remark
   if (row.keyPrefix) return row.keyPrefix + '…'
   return 'Key #' + row.apiKeyId
+}
+
+// 根据 apiKeyId 在 keys 列表里查备注；查不到则退回前缀/Key #id
+function keyIdLabel(apiKeyId) {
+  if (apiKeyId == null) return '未关联 Key'
+  const k = keys.value.find((x) => x.id === apiKeyId)
+  if (k && k.remark) return k.remark
+  if (k && k.keyPrefix) return k.keyPrefix + '…'
+  return 'Key #' + apiKeyId
 }
 
 function renderKey(usage) {
