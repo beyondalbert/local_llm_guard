@@ -118,27 +118,43 @@ public class MonitorService {
         }
 
         try {
-            java.util.List<String> cmd = new java.util.ArrayList<>();
-            cmd.add(nvidiaSmi);
-            cmd.add("--query-gpu=name,temperature.gpu,utilization.gpu,memory.total,memory.used,memory.free");
-            cmd.add("--format=csv,noheader,nounits");
-            Process p = new ProcessBuilder(cmd)
-                    .redirectErrorStream(true)
-                    .start();
-            List<String> lines = new ArrayList<>();
-            try (java.io.BufferedReader r = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(p.getInputStream()))) {
-                String line;
-                while ((line = r.readLine()) != null) {
-                    if (!line.isBlank()) lines.add(line.trim());
+            // 连续采样多次取峰值/均值：utilization.gpu 是上一采样周期的瞬时值，
+            // GPU 内核突发执行时单次采样可能正好是 0。
+            int samples = 4;
+            int intervalMs = 200;
+            Map<String, java.util.List<Long>> perGpuUtils = new java.util.LinkedHashMap<>();
+            Map<String, Map<String, Object>> index = new java.util.LinkedHashMap<>();
+            for (int s = 0; s < samples; s++) {
+                if (s > 0) {
+                    try { Thread.sleep(intervalMs); } catch (InterruptedException ignored) { }
+                }
+                for (String line : runGpuQuery(nvidiaSmi)) {
+                    String[] parts = line.split(",");
+                    String name = parts.length > 0 ? parts[0].trim() : "";
+                    Map<String, Object> acc = index.computeIfAbsent(name, k -> new java.util.LinkedHashMap<>());
+                    acc.put("name", name);
+                    acc.put("temperature", parseLong(parts, 1));
+                    acc.put("memTotal", parseBytesFromMB(parseLong(parts, 3)));
+                    acc.put("memUsed", parseBytesFromMB(parseLong(parts, 4)));
+                    acc.put("memFree", parseBytesFromMB(parseLong(parts, 5)));
+                    long util = parseLong(parts, 2);
+                    perGpuUtils.computeIfAbsent(name, k -> new java.util.ArrayList<>()).add(util);
                 }
             }
-            boolean finished = p.waitFor(10, TimeUnit.SECONDS);
-            if (!finished) {
-                p.destroyForcibly();
-            }
-            for (String line : lines) {
-                gpus.add(parseGpuLine(line));
+            for (Map<String, Object> acc : index.values()) {
+                long total = (Long) acc.getOrDefault("memTotal", 0L);
+                long used = (Long) acc.getOrDefault("memUsed", 0L);
+                acc.put("memUsagePercent", total == 0 ? 0 : round(used / (double) total * 100));
+                // 多采样：utilization 用峰值，另带平均值与采样次数
+                java.util.List<Long> utils = perGpuUtils.get(acc.get("name"));
+                long peak = 0, sum = 0;
+                for (Long u : utils) peak = Math.max(peak, u);
+                for (Long u : utils) sum += u;
+                acc.put("utilization", peak);
+                acc.put("avgUtilization", utils.isEmpty() ? 0 : round(sum / (double) utils.size()));
+                acc.put("sampleCount", utils.size());
+                acc.put("available", true);
+                gpus.add(acc);
             }
             if (gpus.isEmpty()) {
                 Map<String, Object> note = new LinkedHashMap<>();
@@ -155,20 +171,24 @@ public class MonitorService {
         return gpus;
     }
 
-    private Map<String, Object> parseGpuLine(String line) {
-        String[] parts = line.split(",");
-        Map<String, Object> gpu = new LinkedHashMap<>();
-        gpu.put("available", true);
-        gpu.put("name", parts.length > 0 ? parts[0].trim() : "");
-        gpu.put("temperature", parseLong(parts, 1));
-        gpu.put("utilization", parseLong(parts, 2));
-        gpu.put("memTotal", parseBytesFromMB(parseLong(parts, 3)));
-        gpu.put("memUsed", parseBytesFromMB(parseLong(parts, 4)));
-        gpu.put("memFree", parseBytesFromMB(parseLong(parts, 5)));
-        long total = gpu.get("memTotal") instanceof Long ? (Long) gpu.get("memTotal") : 0;
-        long used = gpu.get("memUsed") instanceof Long ? (Long) gpu.get("memUsed") : 0;
-        gpu.put("memUsagePercent", total == 0 ? 0 : round(used / (double) total * 100));
-        return gpu;
+    private java.util.List<String> runGpuQuery(String nvidiaSmi) throws Exception {
+        java.util.List<String> cmd = new java.util.ArrayList<>();
+        cmd.add(nvidiaSmi);
+        cmd.add("--query-gpu=name,temperature.gpu,utilization.gpu,memory.total,memory.used,memory.free");
+        cmd.add("--format=csv,noheader,nounits");
+        Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+        List<String> lines = new ArrayList<>();
+        try (java.io.BufferedReader r = new java.io.BufferedReader(
+                new java.io.InputStreamReader(p.getInputStream()))) {
+            String line;
+            while ((line = r.readLine()) != null) {
+                if (!line.isBlank()) lines.add(line.trim());
+            }
+        }
+        if (!p.waitFor(5, TimeUnit.SECONDS)) {
+            p.destroyForcibly();
+        }
+        return lines;
     }
 
     private long parseLong(String[] parts, int idx) {

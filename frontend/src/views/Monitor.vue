@@ -65,7 +65,7 @@
                 <span class="gpu-dot"></span>{{ g.available !== false ? g.name : '未检测到 GPU' }}
               </div>
               <div v-if="g.available !== false" class="gpu-sub">
-                {{ fmtNum(g.temperature) }}°C · 利用率 {{ fmtNum(g.utilization) }}%
+                {{ fmtNum(g.temperature) }}°C · 利用率 {{ fmtNum(g.utilization) }}%<template v-if="g.avgUtilization != null">（均值 {{ fmtNum(g.avgUtilization) }}% / {{ g.sampleCount }} 次采样）</template>
               </div>
               <div v-else class="gpu-note">{{ g.note }}</div>
             </el-col>
