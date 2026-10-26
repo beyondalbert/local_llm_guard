@@ -28,6 +28,10 @@
           <span class="menu-icon">⚙</span>
           <span>模型配置</span>
         </el-menu-item>
+        <el-menu-item index="/monitor">
+          <span class="menu-icon">▤</span>
+          <span>系统监测</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
 
@@ -91,6 +95,7 @@
           <el-menu-item index="/keys"><span class="menu-icon">⚿</span><span>API Key 管理</span></el-menu-item>
           <el-menu-item index="/chat"><span class="menu-icon">✉</span><span>对话测试</span></el-menu-item>
           <el-menu-item index="/settings"><span class="menu-icon">⚙</span><span>模型配置</span></el-menu-item>
+          <el-menu-item index="/monitor"><span class="menu-icon">▤</span><span>系统监测</span></el-menu-item>
         </el-menu>
         <div class="drawer-foot">
           <div class="drawer-user">
@@ -153,7 +158,7 @@ const pwdRules = {
 }
 
 const routeTitle = computed(() => {
-  const map = { dashboard: '数据看板', keys: 'API Key 管理', chat: '对话测试', settings: '模型配置' }
+  const map = { dashboard: '数据看板', keys: 'API Key 管理', chat: '对话测试', settings: '模型配置', monitor: '系统监测' }
   return map[route.name] || 'Local LLM Guard'
 })
 

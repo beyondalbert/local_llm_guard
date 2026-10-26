@@ -5,6 +5,7 @@ import Dashboard from '../views/Dashboard.vue'
 import ApiKeys from '../views/ApiKeys.vue'
 import Chat from '../views/Chat.vue'
 import Settings from '../views/Settings.vue'
+import Monitor from '../views/Monitor.vue'
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -18,7 +19,8 @@ const router = createRouter({
         { path: 'dashboard', name: 'dashboard', component: Dashboard },
         { path: 'keys', name: 'keys', component: ApiKeys },
         { path: 'chat', name: 'chat', component: Chat },
-        { path: 'settings', name: 'settings', component: Settings }
+        { path: 'settings', name: 'settings', component: Settings },
+        { path: 'monitor', name: 'monitor', component: Monitor }
       ]
     }
   ]
